@@ -1,0 +1,38 @@
+[
+  {
+    "label": "abrir chrome",
+    "code": "start chrome"
+  },
+  {
+    "label": "abrir bloco de notas",
+    "code": "notepad"
+  },
+  {
+    "label": "bloquear tela",
+    "code": "rundll32.exe user32.dll, LockWorkStation"
+  },
+  {
+    "label": "abrir calculadora",
+    "code": "calc"
+  },
+  {
+    "label": "abrir os arquivos do computador",
+    "code": "explorer"
+  },
+  {
+    "label": "desligar computador",
+    "code": "shutdown /s /t 0"
+  },
+  {
+    "label": "reiniciar computador",
+    "code": "shutdown /r /t 0"
+  },
+  {
+    "label": "aumentar volume",
+    "code": "nircmd.exe changesysvolume 5000"
+  },
+  {
+    "label": "baixar volume",
+    "code": "nircmd.exe changesysvolume -5000"
+  }
+]
