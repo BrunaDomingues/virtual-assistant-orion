@@ -1,4 +1,4 @@
-# AssistenteOrion 🤖🎙️
+# Assistente Orion 🤖🎙️
 
 Um assistente virtual por voz que roda em segundo plano no PC, sempre ouvindo pela wake word "Orion" e executando comandos de voz configurados dinamicamente através de um arquivo JSON.
 
@@ -36,7 +36,7 @@ AssistenteOrion/
 
 ### 2. Clonar o projeto
 ```bash
-git clone <url-do-repositorio>
+git clone https://github.com/KevinAllysson/virtual-assistant-orion.git
 cd AssistenteOrion
 ```
 
