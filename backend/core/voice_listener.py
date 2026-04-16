@@ -2,6 +2,8 @@ import speech_recognition as sr
 import time
 from typing import Optional, List
 
+from core.sd_microphone import SoundDeviceMicrophone
+
 
 class VoiceListener:
     """
@@ -43,7 +45,7 @@ class VoiceListener:
         
         # Configurar o reconhecedor
         self.recognizer = sr.Recognizer()
-        self.microphone = sr.Microphone()
+        self.microphone = SoundDeviceMicrophone()
         
         # Ajustar para ruído ambiente
         self._calibrate_microphone()

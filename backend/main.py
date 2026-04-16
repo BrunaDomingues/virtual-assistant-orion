@@ -3,8 +3,8 @@
 AssistenteOrion - Assistente Virtual por Voz
 ============================================
 
-Um assistente virtual que roda em segundo plano, sempre ouvindo pela wake word "Orion"
-e executando comandos de voz configurados em um arquivo JSON.
+Um assistente virtual que roda em segundo plano ouvindo comandos de voz
+configurados em um arquivo JSON.
 
 Autor: AssistenteOrion
 Data: 2024
@@ -14,12 +14,14 @@ import os
 import sys
 import signal
 import time
+import asyncio
 from typing import Optional
 
 # Adiciona o diretório raiz ao path para importações
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from core.voice_listener import VoiceListener
+from core.speaker import OrionSpeaker
 from utils.command_executor import CommandExecutor
 
 
@@ -33,6 +35,7 @@ class AssistenteOrion:
         Inicializa o assistente
         """
         self.voice_listener = None
+        self.speaker = OrionSpeaker()
         self.command_executor = None
         self.running = False
         
@@ -103,30 +106,24 @@ class AssistenteOrion:
         try:
             while self.running:
                 try:
-                    # Aguarda pela wake word "Orion"
-                    if self.voice_listener.wait_for_wake_word():
-                        print("🎙️  Wake word detectada! Aguardando comando...")
-                        
-                        # Escuta por um comando
-                        command_text = self.voice_listener.listen_for_command()
-                        
-                        if command_text:
-                            print(f"📝 Processando comando: '{command_text}'")
-                            
-                            # Processa o comando
-                            success = self.command_executor.process_voice_command(command_text)
-                            
-                            if success:
-                                print("✅ Comando executado com sucesso!")
-                            else:
-                                print("❌ Comando não reconhecido ou falhou na execução")
-                                print("💡 Diga 'Orion' novamente e tente outro comando")
+                    # Escuta comandos continuamente sem exigir wake word.
+                    command_text = self.voice_listener.listen_for_command(max_attempts=1)
+
+                    if command_text:
+                        print(f"📝 Processando comando: '{command_text}'")
+
+                        # Processa o comando
+                        success = self.command_executor.process_voice_command(command_text)
+
+                        if success:
+                            print("✅ Comando executado com sucesso!")
+                            self.speak_response(f"Comando {command_text} executado com sucesso.")
                         else:
-                            print("❌ Não foi possível capturar um comando")
-                            print("💡 Diga 'Orion' novamente e tente falar mais claramente")
-                        
+                            print("❌ Comando não reconhecido ou falhou na execução")
+                            self.speak_response(f"Nao consegui executar o comando {command_text}.")
+
                         print("\n" + "-" * 60)
-                        print("Voltando ao modo de escuta da wake word...")
+                        print("Continuando em escuta contínua...")
                         print("-" * 60 + "\n")
                 
                 except KeyboardInterrupt:
@@ -142,6 +139,18 @@ class AssistenteOrion:
         finally:
             print("\n🔴 AssistenteOrion encerrado.")
 
+    def speak_response(self, text: str) -> None:
+        """
+        Fala um texto de resposta em modo legado.
+        Pode ser usado para feedback de comandos e respostas do Gemini.
+        """
+        if not text or not text.strip():
+            return
+        try:
+            asyncio.run(self.speaker.speak(text))
+        except Exception as e:
+            print(f"[TTS] Falha ao reproduzir audio: {e}")
+
 
 def check_dependencies() -> bool:
     """
@@ -151,8 +160,8 @@ def check_dependencies() -> bool:
         bool: True se todas as dependências estão disponíveis
     """
     try:
-        import speech_recognition
-        import pyaudio
+        import speech_recognition  # noqa: F401
+        import sounddevice  # noqa: F401
         return True
     except ImportError as e:
         print(f"ERRO: Dependência não encontrada - {e}")
@@ -163,15 +172,28 @@ def check_dependencies() -> bool:
 
 def main():
     """
-    Função principal
+    Função principal.
+
+    Modo padrão: inicia o servidor WebSocket (backend/server.py) que integra
+    o loop de voz com o frontend React em ws://localhost:8765.
+
+    Para rodar sem o frontend (modo terminal legado), use a flag --legacy:
+        python main.py --legacy
     """
-    print("Verificando dependências...")
-    if not check_dependencies():
-        sys.exit(1)
-    
-    # Cria e executa o assistente
-    assistente = AssistenteOrion()
-    assistente.run()
+    if "--legacy" in sys.argv:
+        print("Verificando dependências...")
+        if not check_dependencies():
+            sys.exit(1)
+        assistente = AssistenteOrion()
+        assistente.run()
+    else:
+        from server import OrionWebSocketServer, _check_dependencies
+        if not _check_dependencies():
+            sys.exit(1)
+        try:
+            asyncio.run(OrionWebSocketServer().start())
+        except KeyboardInterrupt:
+            print("\nServidor encerrado.")
 
 
 if __name__ == "__main__":

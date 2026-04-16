@@ -1,282 +1,269 @@
-# Assistente Orion 🤖🎙️
+# Assistente Orion
 
-Um assistente virtual por voz que roda em segundo plano no PC, sempre ouvindo pela wake word "Orion" e executando comandos de voz configurados dinamicamente através de um arquivo JSON.
-
-## 🚀 Funcionalidades
-
-- **Wake Word**: Ativação por voz com a palavra "Orion"
-- **Reconhecimento de Voz**: Processamento de comandos em português brasileiro
-- **Comandos Dinâmicos**: Comandos carregados de arquivo JSON (sem hard-coding)
-- **Execução em Segundo Plano**: Loop infinito aguardando comandos
-- **Fácil Expansão**: Adicione novos comandos apenas editando o JSON
-
-## 📁 Estrutura do Projeto
-
-```
-AssistenteOrion/
-├── main.py                 # Ponto de entrada do assistente
-├── requirements.txt        # Dependências Python
-├── README.md              # Este arquivo
-├── core/                  # Lógica principal
-│   ├── __init__.py
-│   └── voice_listener.py  # Escuta e reconhecimento de voz
-├── utils/                 # Funções auxiliares
-│   ├── __init__.py
-│   └── command_executor.py # Executor de comandos
-└── commands/              # Configurações de comandos
-    └── commands.json      # Comandos disponíveis
-```
-
-## ⚙️ Instalação
-
-### 1. Pré-requisitos
-- Python 3.7 ou superior
-- Microfone funcional
-- Windows (testado no Windows 10/11)
-
-### 2. Clonar o projeto
-```bash
-git clone https://github.com/KevinAllysson/virtual-assistant-orion.git
-cd AssistenteOrion
-```
-
-### 3. Instalar dependências
-```bash
-pip install -r requirements.txt
-```
-
-**Nota**: Se houver problemas com `pyaudio` no Windows, você pode tentar:
-```bash
-pip install pipwin
-pipwin install pyaudio
-```
-
-### 4. Executar o assistente
-```bash
-python main.py
-```
-
-## 🎯 Como Usar
-
-1. **Execute o assistente**: `python main.py`
-2. **Aguarde a calibração**: O assistente ajustará para o ruído ambiente
-3. **Diga a wake word**: "Orion" (aceita variações fonéticas como "orio", "órion", etc.)
-4. **Aguarde o feedback**: O assistente confirmará que ouviu
-5. **Diga seu comando**: Por exemplo, "abrir chrome"
-6. **O comando será executado**: Se reconhecido corretamente
-
-### 🎙️ Variações Fonéticas da Wake Word
-
-O assistente aceita automaticamente estas variações de "Orion":
-- `orion` - Original
-- `órion` - Com acento
-- `orio` - Sem o 'n' final (comum no reconhecimento)
-- `ório` - Com acento e sem o 'n'
-- `orião` - Com til
-- `hórion` - Com 'h' aspirado
-- `oriom` - Com 'm' no lugar do 'n'
-- `o rion` - Separado
-- `o rio` - Separado e sem 'n'
-- `oryon` - Com 'y'
-
-Isso resolve problemas de reconhecimento fonético!
-
-### Exemplo de Uso
-```
-Usuário: "Orion"
-Assistente: "Wake word detectada! Aguardando comando..."
-Usuário: "abrir bloco de notas"
-Assistente: "Comando executado com sucesso!"
-[Bloco de notas é aberto]
-```
-
-## 📝 Adicionando Novos Comandos
-
-Para adicionar novos comandos, edite o arquivo `commands/commands.json`:
-
-```json
-[
-  {
-    "label": "seu comando de voz",
-    "code": "comando do sistema operacional"
-  }
-]
-```
-
-### Estrutura do JSON
-
-- **label**: Como você vai falar o comando (em português)
-- **code**: Comando que será executado no sistema operacional
-
-### Exemplos de Comandos
-
-```json
-[
-  {
-    "label": "abrir chrome",
-    "code": "start chrome"
-  },
-  {
-    "label": "abrir bloco de notas",
-    "code": "notepad"
-  },
-  {
-    "label": "bloquear tela",
-    "code": "rundll32.exe user32.dll, LockWorkStation"
-  },
-  {
-    "label": "abrir calculadora",
-    "code": "calc"
-  },
-  {
-    "label": "abrir pasta documentos",
-    "code": "explorer %USERPROFILE%\\Documents"
-  },
-  {
-    "label": "verificar ip",
-    "code": "ipconfig"
-  },
-  {
-    "label": "abrir prompt",
-    "code": "cmd"
-  },
-  {
-    "label": "desligar computador",
-    "code": "shutdown /s /t 0"
-  },
-  {
-    "label": "reiniciar computador",
-    "code": "shutdown /r /t 0"
-  }
-]
-```
-
-## 🔧 Comandos Pré-configurados
-
-O assistente vem com os seguintes comandos já configurados:
-
-| Comando de Voz | Ação |
-|---|---|
-| "abrir chrome" | Abre o Google Chrome |
-| "abrir bloco de notas" | Abre o Notepad |
-| "bloquear tela" | Bloqueia a tela do Windows |
-| "abrir calculadora" | Abre a Calculadora |
-| "abrir explorador de arquivos" | Abre o Windows Explorer |
-| "desligar computador" | Desliga o computador |
-| "reiniciar computador" | Reinicia o computador |
-
-## ⚠️ Comandos Perigosos
-
-**CUIDADO** com comandos que podem:
-- Desligar ou reiniciar o computador
-- Deletar arquivos
-- Modificar configurações do sistema
-- Executar scripts maliciosos
-
-Sempre teste novos comandos antes de deixar o assistente rodando desacompanhado.
-
-## 🛠️ Personalização Avançada
-
-### Ajustar Sensibilidade de Reconhecimento
-
-No arquivo `utils/command_executor.py`, você pode ajustar o parâmetro `min_similarity` na função `find_command()`:
-
-```python
-def find_command(self, spoken_text: str, min_similarity: float = 0.6):
-    # Valores menores = mais flexível (pode executar comandos errados)
-    # Valores maiores = mais restritivo (pode não reconhecer comandos válidos)
-```
-
-### Modificar Wake Word
-
-No arquivo `main.py`, você pode mudar a wake word padrão:
-
-```python
-self.voice_listener = VoiceListener(wake_word="sua_palavra")
-```
-
-### Ajustar Timeouts
-
-No arquivo `core/voice_listener.py`, você pode modificar os timeouts:
-
-```python
-self.voice_listener = VoiceListener(
-    wake_word="orion",
-    timeout=1,           # Timeout para escuta contínua
-    phrase_timeout=0.3   # Timeout entre frases
-)
-```
-
-## 🐛 Solução de Problemas
-
-### Erro de Microfone
-- Verifique se o microfone está conectado e funcionando
-- Teste o microfone em outras aplicações
-- Execute o assistente como administrador
-
-### Erro de Reconhecimento
-- Fale mais devagar e claramente
-- Reduza o ruído ambiente
-- Ajuste a distância do microfone
-- Verifique sua conexão com a internet (usa Google Speech API)
-
-### PyAudio não instala
-No Windows:
-```bash
-pip install pipwin
-pipwin install pyaudio
-```
-
-### Comandos não reconhecidos
-- Verifique se o `commands.json` está bem formatado
-- Teste falar o comando exatamente como está no "label"
-- Reduza o `min_similarity` para ser mais flexível
-
-### Assistente não responde
-- Pressione Ctrl+C e reinicie
-- Verifique se não há erros no console
-- Teste sua conexão com a internet
-
-## 📊 Logs e Debug
-
-O assistente exibe informações detalhadas no console:
-- Status de inicialização
-- Comandos carregados
-- Wake word detectada
-- Comandos reconhecidos
-- Resultados de execução
-
-Use essas informações para diagnosticar problemas.
-
-## 🔄 Atualizações Futuras
-
-Possíveis melhorias planejadas:
-- [ ] Interface gráfica para gerenciar comandos
-- [ ] Suporte a comandos com parâmetros
-- [ ] Reconhecimento offline
-- [ ] Feedback por voz
-- [ ] Comandos condicionais
-- [ ] Integração com APIs externas
-- [ ] Modo de treinamento personalizado
-
-## 📄 Licença
-
-Este projeto é open source. Sinta-se livre para modificar e distribuir.
-
-## 🤝 Contribuição
-
-Contribuições são bem-vindas! Para contribuir:
-
-1. Fork o projeto
-2. Crie uma branch para sua feature (`git checkout -b feature/MinhaFeature`)
-3. Commit suas mudanças (`git commit -m 'Adiciona MinhaFeature'`)
-4. Push para a branch (`git push origin feature/MinhaFeature`)
-5. Abra um Pull Request
-
-## 📞 Suporte
-
-Se encontrar problemas ou tiver sugestões, abra uma issue no repositório do projeto.
+Assistente virtual por voz com interface visual 3D. A escuta é ativada manualmente por botão no frontend, reconhece comandos em português e executa ações no Windows com feedback visual e resposta por voz (TTS) em tempo real.
 
 ---
 
-**AssistenteOrion** - Seu assistente virtual inteligente por voz! 🚀
+## Visão geral da arquitetura
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Frontend  (React + Three.js)   –  npm run dev → :5173      │
+│                                                             │
+│   Rosto 3D (nuvem de pontos + wireframe MediaPipe)          │
+│   HUD: estado, comandos, parâmetros neurais                 │
+└───────────────────┬─────────────────────────────────────────┘
+                    │  WebSocket  ws://localhost:8765
+┌───────────────────▼─────────────────────────────────────────┐
+│  Backend   (Python)             –  python main.py → :8765   │
+│                                                             │
+│   VoiceListener   → microfone + Google Speech API            │
+│   CommandExecutor → fuzzy match + subprocess                 │
+│   OrionSpeaker    → edge-tts + pygame (resposta por voz)    │
+└─────────────────────────────────────────────────────────────┘
+```
+
+O backend emite eventos JSON (`state`, `recognized`, `command`, `error`) para o frontend via WebSocket. O frontend também envia `start_listening` e `stop_listening` para controlar a escuta contínua sem wake word.
+
+---
+
+## Pré-requisitos
+
+| Dependência | Versão mínima | Para quê |
+|---|---|---|
+| Python | 3.12+ | Backend / reconhecimento de voz |
+| Node.js | 18+ | Frontend React |
+| Microfone | — | Captura de áudio |
+| Internet | — | Google Speech API (reconhecimento) |
+
+> Python 3.14 é suportado. PyAudio **não é necessário** — o projeto usa `sounddevice`.
+
+---
+
+## Estrutura do projeto
+
+```
+virtual-assistant-orion/
+├── backend/                    # Servidor Python
+│   ├── main.py                 # Ponto de entrada
+│   ├── server.py               # Servidor WebSocket (ws://localhost:8765)
+│   ├── requirements.txt        # Dependências Python
+│   ├── core/
+│   │   ├── voice_listener.py   # Captura + reconhecimento de comando
+│   │   └── speaker.py          # TTS assíncrono (edge-tts + pygame)
+│   ├── utils/
+│   │   └── command_executor.py # Fuzzy match + execução de comandos
+│   └── commands/
+│       └── commands.json       # Comandos de voz configuráveis
+│
+├── src/                        # Aplicação React
+│   ├── App.jsx                 # Orquestração: HUD + estado
+│   ├── index.css               # Estilo global (Share Tech Mono, animações)
+│   ├── hooks/
+│   │   └── useOrionSocket.js   # Hook WebSocket com reconexão automática
+│   ├── components/
+│   │   ├── AgentFace.jsx       # Canvas R3F: rosto, anéis, partículas, Bloom
+│   │   └── FaceMesh.jsx        # Nuvem de pontos + wireframe + olhos animados
+│   └── data/
+│       └── faceLandmarks.js    # Loader do modelo OBJ (MediaPipe 468 vértices)
+│
+├── index.html                  # HTML raiz (fonte Share Tech Mono)
+├── vite.config.js              # Configuração Vite 5
+└── package.json
+```
+
+---
+
+## Instalação
+
+### 1. Clonar o repositório
+
+```powershell
+git clone https://github.com/KevinAllysson/virtual-assistant-orion.git
+cd virtual-assistant-orion
+```
+
+### 2. Instalar dependências do backend
+
+```powershell
+cd backend
+pip install -r requirements.txt
+```
+
+> Se aparecer erro de compilação do `PyAudio`: ele não é mais usado. Certifique-se de estar usando o `requirements.txt` atualizado que usa `sounddevice`.
+
+### 3. Instalar dependências do frontend
+
+```powershell
+cd ..          # volta para a raiz do projeto
+npm install
+```
+
+---
+
+## Como iniciar
+
+Abra **dois terminais** separados.
+
+### Terminal 1 — Backend (servidor de voz)
+
+```powershell
+cd backend
+python main.py
+```
+
+Você verá:
+
+```
+============================================================
+       ASSISTENTE ORION - SERVIDOR WebSocket
+       ws://localhost:8765
+============================================================
+Inicializando executor de comandos...
+Carregados 9 comandos do arquivo commands/commands.json
+...
+Calibrando microfone para ruído ambiente...
+[WS] Servidor iniciado em ws://localhost:8765
+```
+
+### Terminal 2 — Frontend (interface visual)
+
+```powershell
+npm run dev
+```
+
+Acesse **http://localhost:5173** no navegador.
+
+Assim que o backend estiver rodando, o painel direito do HUD mostrará `BACKEND: ONLINE` e o botão `INICIAR ESCUTA` ficará disponível para ativar a captura de voz.
+
+---
+
+## Como usar
+
+1. Com ambos os servidores rodando, clique em **INICIAR ESCUTA** no HUD.
+2. O rosto 3D muda para o estado **LISTENING**.
+3. Diga um comando — por exemplo: **"abrir chrome"**.
+4. A interface passa por **PROCESSING** e depois **SPEAKING** enquanto a resposta em voz é reproduzida.
+5. Ao terminar, o assistente volta para **LISTENING** (se escuta contínua ativa) ou **STANDBY**.
+6. Clique em **PARAR ESCUTA** para encerrar a captura contínua.
+
+---
+
+## Comandos disponíveis
+
+| Fale | Ação |
+|---|---|
+| "abrir chrome" | Abre o Google Chrome |
+| "abrir bloco de notas" | Abre o Notepad |
+| "bloquear tela" | Bloqueia a sessão do Windows |
+| "abrir calculadora" | Abre a Calculadora |
+| "abrir os arquivos do computador" | Abre o Windows Explorer |
+| "aumentar volume" | Aumenta o volume do sistema |
+| "baixar volume" | Diminui o volume do sistema |
+| "desligar computador" | Desliga o PC |
+| "reiniciar computador" | Reinicia o PC |
+
+### Adicionar novos comandos
+
+Edite `backend/commands/commands.json`:
+
+```json
+[
+  {
+    "label": "abrir spotify",
+    "code": "start spotify"
+  }
+]
+```
+
+- `label` — exatamente o que você vai falar (português)
+- `code` — comando executado via `subprocess` no Windows
+
+O backend recarrega o arquivo automaticamente a cada inicialização. Não é necessário reiniciar para trocar comandos — basta reiniciar o `python main.py`.
+
+---
+
+## Modo legado (terminal sem frontend)
+
+Se quiser rodar apenas o backend no terminal, sem o servidor WebSocket:
+
+```powershell
+cd backend
+python main.py --legacy
+```
+
+No modo legado, o assistente também usa TTS para dar feedback após cada comando executado.
+
+---
+
+## Solução de problemas
+
+### Backend não inicia / erro de microfone
+
+```
+ERRO na inicialização: ...
+```
+
+- Verifique se o microfone está conectado e não está em uso por outro app.
+- Teste com `py -3.14 -c "import sounddevice as sd; print(sd.query_devices())"`.
+
+### Erro de compilação ao instalar dependências
+
+```
+error: Microsoft Visual C++ 14.0 or greater is required
+```
+
+O `PyAudio` não é mais usado. Se aparecer esse erro, confirme que o `requirements.txt` contém `sounddevice` e **não** `pyaudio`.
+
+### Frontend mostra `BACKEND: OFFLINE`
+
+- Confirme que `python main.py` está rodando no terminal 1.
+- Verifique se a porta 8765 está livre: `netstat -an | findstr 8765`.
+- O frontend tentará reconectar automaticamente a cada 2 segundos.
+
+### Rosto 3D não aparece (tela preta)
+
+- O modelo OBJ é baixado do GitHub ao abrir o app — verifique sua conexão com a internet.
+- Durante o download o placeholder (icosaedro wireframe) é exibido.
+
+### Comandos não são reconhecidos
+
+- Fale de forma clara e próxima ao microfone.
+- Verifique sua conexão com a internet (o reconhecimento usa a Google Speech API).
+- Reduza a sensibilidade mínima em `backend/utils/command_executor.py`:
+  ```python
+  def find_command(self, spoken_text: str, min_similarity: float = 0.5):
+  ```
+
+### Botão de escuta não ativa captura
+
+- Confirme que `python main.py` está rodando no backend.
+- Verifique se o frontend mostra `BACKEND: ONLINE`.
+- Se necessário, reinicie backend e frontend.
+
+### Sem áudio de resposta (TTS)
+
+- Verifique se as dependências foram instaladas com `pip install -r requirements.txt`.
+- Confirme que `edge-tts` e `pygame` estão presentes no ambiente Python ativo.
+- Verifique se há dispositivo de saída de áudio disponível no sistema.
+
+---
+
+## Tecnologias
+
+| Camada | Tecnologia |
+|---|---|
+| Reconhecimento de voz | `speech_recognition` + Google Speech API |
+| Captura de áudio | `sounddevice` (sem PyAudio) |
+| Resposta por voz (TTS) | `edge-tts` + `pygame` |
+| Servidor WebSocket | `websockets` (Python asyncio) |
+| Interface 3D | React 18 + Three.js ~0.168 + React Three Fiber |
+| Efeitos visuais | `@react-three/postprocessing` (Bloom) |
+| Modelo facial | MediaPipe Canonical Face Model (468 vértices) |
+| Build tool | Vite 5 |
+
+---
+
+## Licença
+
+Open source. Sinta-se livre para modificar e distribuir.

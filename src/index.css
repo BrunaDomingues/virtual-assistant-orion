@@ -1,0 +1,316 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #050505;
+  font-family: 'Share Tech Mono', monospace;
+  color: #22d3ee;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+
+@keyframes scanPulse {
+  0%   { top: -2px;   opacity: 0.7; }
+  100% { top: 100%;   opacity: 0;   }
+}
+
+@keyframes vuPulse {
+  from { height: 4px;  opacity: 0.4; }
+  to   { height: 22px; opacity: 0.9; }
+}
+
+/* ── Layout ──────────────────────────────────────────── */
+
+.app-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.canvas-container {
+  position: absolute;
+  inset: 0;
+}
+
+.hud-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* ── CSS scan line ───────────────────────────────────── */
+
+.scan-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    #22d3ee44,
+    #22d3ee88,
+    #22d3ee44,
+    transparent
+  );
+  animation: scanPulse 5s linear infinite;
+  pointer-events: none;
+}
+
+/* ── Corner decorations ──────────────────────────────── */
+
+.corner {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+}
+
+.corner-tl { top: 16px;    left: 16px;  border-top: 1px solid #22d3ee88;    border-left:  1px solid #22d3ee88; }
+.corner-tr { top: 16px;    right: 16px; border-top: 1px solid #22d3ee88;    border-right: 1px solid #22d3ee88; }
+.corner-bl { bottom: 16px; left: 16px;  border-bottom: 1px solid #22d3ee88; border-left:  1px solid #22d3ee88; }
+.corner-br { bottom: 16px; right: 16px; border-bottom: 1px solid #22d3ee88; border-right: 1px solid #22d3ee88; }
+
+/* ── Top bar ─────────────────────────────────────────── */
+
+.hud-top {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 28px;
+  align-items: center;
+  animation: fadeIn 0.5s ease-out;
+  white-space: nowrap;
+}
+
+.hud-label {
+  font-size: 10px;
+  color: #22d3ee66;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.hud-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  letter-spacing: 0.18em;
+}
+
+.status-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #22d3ee;
+  flex-shrink: 0;
+}
+
+.status-idle     .status-dot { background: #475569; animation: none; }
+.status-listening .status-dot { background: #22d3ee; animation: blink 0.9s step-end infinite; }
+.status-processing .status-dot { background: #f59e0b; animation: blink 0.55s step-end infinite; }
+.status-speaking  .status-dot { background: #a78bfa; animation: blink 0.45s step-end infinite; }
+
+.status-idle     { color: #475569; }
+.status-listening { color: #22d3ee; }
+.status-processing { color: #f59e0b; }
+.status-speaking  { color: #a78bfa; }
+
+/* ── Side panels ─────────────────────────────────────── */
+
+.hud-panel {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 192px;
+  background: rgba(34, 211, 238, 0.035);
+  border: 1px solid rgba(34, 211, 238, 0.14);
+  padding: 14px 12px;
+  animation: fadeIn 0.8s ease-out;
+}
+
+.hud-left  { left:  18px; }
+.hud-right { right: 18px; }
+
+.panel-title {
+  font-size: 9px;
+  color: #22d3eeaa;
+  letter-spacing: 0.22em;
+  margin-bottom: 14px;
+  border-bottom: 1px solid rgba(34, 211, 238, 0.14);
+  padding-bottom: 6px;
+}
+
+/* blend-shape bars */
+.bar-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 9px;
+}
+
+.bar-label {
+  font-size: 8px;
+  color: #22d3ee77;
+  width: 68px;
+  flex-shrink: 0;
+  letter-spacing: 0.04em;
+}
+
+.bar-track {
+  flex: 1;
+  height: 3px;
+  background: rgba(34, 211, 238, 0.1);
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  background: #22d3ee;
+  transition: width 0.08s linear;
+  min-width: 0;
+}
+
+.bar-value {
+  font-size: 8px;
+  color: #22d3ee77;
+  width: 26px;
+  text-align: right;
+}
+
+/* system info rows */
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  color: #22d3ee77;
+  margin-bottom: 9px;
+  letter-spacing: 0.06em;
+}
+
+.info-row span:last-child { color: #22d3eecc; }
+
+/* ── VU meter ────────────────────────────────────────── */
+
+.vu-meter {
+  position: absolute;
+  bottom: 68px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.vu-bar {
+  width: 3px;
+  background: #22d3ee;
+  border-radius: 1px;
+  animation: vuPulse 0.25s ease-in-out infinite alternate;
+}
+
+/* ── Speech bubble ───────────────────────────────────── */
+
+.speech-bubble {
+  position: absolute;
+  bottom: 72px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(34, 211, 238, 0.06);
+  border: 1px solid rgba(34, 211, 238, 0.3);
+  padding: 9px 18px;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  animation: fadeIn 0.25s ease-out;
+  white-space: nowrap;
+}
+
+.typing-cursor::after {
+  content: '|';
+  animation: blink 0.65s step-end infinite;
+}
+
+/* ── Bottom bar ──────────────────────────────────────── */
+
+.hud-bottom {
+  position: absolute;
+  bottom: 18px;
+  left: 18px;
+  right: 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  pointer-events: all;
+}
+
+.bottom-center { display: flex; gap: 8px; }
+
+.state-btn {
+  background: transparent;
+  border: 1px solid rgba(34, 211, 238, 0.35);
+  color: rgba(34, 211, 238, 0.6);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  text-transform: uppercase;
+}
+
+.state-btn:hover {
+  border-color: #22d3ee;
+  color: #22d3ee;
+  background: rgba(34, 211, 238, 0.08);
+}
+
+.state-btn.active {
+  border-color: #22d3ee;
+  color: #050505;
+  background: #22d3ee;
+}
+
+.blink { animation: blink 2.5s step-end infinite; }
+
+/* ── Backend connection indicator ───────────────────────────────────────── */
+
+.backend-online  { color: #22d3ee; }
+.backend-offline { color: #ef4444; animation: blink 1.5s step-end infinite; }
+
+/* ── Last command result ─────────────────────────────────────────────────── */
+
+.last-cmd { margin-top: 6px; border-top: 1px solid rgba(34,211,238,0.12); padding-top: 6px; }
+.cmd-ok   { color: #22d3ee; }
+.cmd-fail { color: #ef4444; }
+
+/* ── WS-driven buttons (backend online — readonly) ──────────────────────── */
+
+.state-btn.ws-driven {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.state-btn.ws-driven.active {
+  opacity: 1;
+  pointer-events: none;
+}
