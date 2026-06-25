@@ -118,7 +118,7 @@ gh pr create `
   --base main `
   --head feat/jarvis-desktop-assistant `
   --title "Jarvis: assistente desktop com voz, Spotify e build Windows" `
-  --body-file .github/pr-body.md
+  --body "Descreva aqui o resumo e o test plan do PR."
 ```
 
 ---
