@@ -14,12 +14,13 @@ function StatusRing({ aiState }) {
   useFrame(({ clock }) => {
     if (!meshRef.current) return
     const t     = clock.getElapsedTime()
-    const speed = aiState === 'speaking' ? 2.8 : aiState === 'listening' ? 1.3 : 0.45
+    const speed = aiState === 'speaking' ? 2.8 : aiState === 'listening' ? 1.3 : aiState === 'standby' ? 0.7 : 0.45
     meshRef.current.rotation.z += 0.01 * speed
     meshRef.current.rotation.x  = Math.sin(t * 0.45) * 0.22
     const opacity =
       aiState === 'speaking'  ? 0.88 :
-      aiState === 'listening' ? 0.58 : 0.28
+      aiState === 'listening' ? 0.58 :
+      aiState === 'standby'   ? 0.38 : 0.28
     meshRef.current.material.opacity = opacity
     const hue   = aiState === 'speaking' ? 0.75 : 0.52   // purple vs cyan
     const color = new THREE.Color().setHSL(hue, 0.9, 0.65)

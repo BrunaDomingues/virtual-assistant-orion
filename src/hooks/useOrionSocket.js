@@ -21,6 +21,8 @@ export function useOrionSocket(url = WS_URL) {
   const [aiState,     setAiState]     = useState('idle')
   const [lastText,    setLastText]    = useState('')
   const [lastCommand, setLastCommand] = useState(null)
+  const [assistantName, setAssistantName] = useState('Jarvis')
+  const [wakeWord, setWakeWord] = useState('oi jarvis')
 
   const wsRef          = useRef(null)
   const mountedRef     = useRef(true)
@@ -72,6 +74,10 @@ export function useOrionSocket(url = WS_URL) {
         case 'command':
           setLastCommand({ label: msg.label, success: msg.success })
           break
+        case 'config':
+          if (msg.assistant_name) setAssistantName(msg.assistant_name)
+          if (msg.wake_word) setWakeWord(msg.wake_word)
+          break
         case 'error':
           console.warn('[OrionSocket] Backend error:', msg.message)
           break
@@ -117,5 +123,5 @@ export function useOrionSocket(url = WS_URL) {
     return sendMessage({ type: 'stop_listening' })
   }, [sendMessage])
 
-  return { connected, aiState, lastText, lastCommand, startListening, stopListening }
+  return { connected, aiState, lastText, lastCommand, assistantName, wakeWord, startListening, stopListening }
 }

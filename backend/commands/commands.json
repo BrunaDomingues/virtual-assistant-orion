@@ -34,5 +34,116 @@
   {
     "label": "baixar volume",
     "code": "nircmd.exe changesysvolume -5000"
+  },
+  {
+    "label": "abrir spotify",
+    "aliases": ["abrir o spotify", "iniciar spotify", "abrir spotfy"],
+    "action": "spotify_open"
+  },
+  {
+    "label": "pular música",
+    "aliases": [
+      "pular musica",
+      "próxima música",
+      "proxima musica",
+      "próxima faixa",
+      "proxima faixa",
+      "pular faixa",
+      "música seguinte",
+      "musica seguinte"
+    ],
+    "action": "spotify_next"
+  },
+  {
+    "label": "música anterior",
+    "aliases": [
+      "musica anterior",
+      "voltar música",
+      "voltar musica",
+      "faixa anterior",
+      "música passada",
+      "musica passada"
+    ],
+    "action": "spotify_previous"
+  },
+  {
+    "label": "pausar música",
+    "aliases": [
+      "pausar musica",
+      "pausar",
+      "parar musica",
+      "parar música"
+    ],
+    "action": "spotify_play_pause"
+  },
+  {
+    "label": "pesquisar no spotify",
+    "prefixes": [
+      "pesquisar no spotify",
+      "buscar no spotify",
+      "tocar no spotify",
+      "reproduzir no spotify",
+      "pesquisar",
+      "buscar",
+      "tocar",
+      "reproduzir"
+    ],
+    "action": "spotify_search"
+  },
+  {
+    "label": "tocar playlist",
+    "prefixes": [
+      "tocar playlist",
+      "reproduzir playlist",
+      "executar playlist",
+      "abrir playlist",
+      "colocar playlist"
+    ],
+    "action": "spotify_playlist_search"
+  },
+  {
+    "label": "tocar playlist top global",
+    "aliases": [
+      "reproduzir playlist top global",
+      "executar playlist top global"
+    ],
+    "action": "spotify_playlist",
+    "playlist_id": "37i9dQZF1DX0XUsuxWHRQd"
+  },
+  {
+    "label": "play no spotify",
+    "aliases": [
+      "reproduzir no spotify",
+      "executar no spotify",
+      "dar play",
+      "dar play no spotify",
+      "dar play na musica",
+      "dar play na música",
+      "tocar musica",
+      "tocar música",
+      "reproduzir musica",
+      "reproduzir música",
+      "continuar musica",
+      "continuar música"
+    ],
+    "action": "spotify_play_current"
+  },
+  {
+    "label": "aumentar volume em {valor}",
+    "aliases": [
+      "aumentar volume em {valor}",
+      "aumentar volução em {valor}",
+      "aumentar volução no spotify em {valor}"
+    ],
+    "action": "spotify_volume_up"
+  },
+  {
+    "label": "baixar volume em {valor}",
+    "aliases": [
+      "baixar volume em {valor}",
+      "baixar volução em {valor}",
+      "baixar volução no spotify em {valor}"
+    ],
+    "action": "spotify_volume_down"
   }
 ]

@@ -124,12 +124,14 @@ body,
   flex-shrink: 0;
 }
 
-.status-idle     .status-dot { background: #475569; animation: none; }
+.status-idle      .status-dot { background: #475569; animation: none; }
+.status-standby   .status-dot { background: #64748b; animation: blink 1.8s step-end infinite; }
 .status-listening .status-dot { background: #22d3ee; animation: blink 0.9s step-end infinite; }
 .status-processing .status-dot { background: #f59e0b; animation: blink 0.55s step-end infinite; }
 .status-speaking  .status-dot { background: #a78bfa; animation: blink 0.45s step-end infinite; }
 
-.status-idle     { color: #475569; }
+.status-idle      { color: #475569; }
+.status-standby   { color: #94a3b8; }
 .status-listening { color: #22d3ee; }
 .status-processing { color: #f59e0b; }
 .status-speaking  { color: #a78bfa; }
@@ -313,4 +315,60 @@ body,
 .state-btn.ws-driven.active {
   opacity: 1;
   pointer-events: none;
+}
+
+/* ── Modo pet (janela flutuante) ─────────────────────────────────────────── */
+
+.pet-hidden {
+  display: none !important;
+}
+
+.pet-mode,
+.pet-mode #root {
+  background: transparent;
+}
+
+.pet-shell .canvas-container {
+  inset: 8px 8px 52px;
+}
+
+.pet-status-bar {
+  top: 10px;
+  gap: 0;
+  padding: 4px 12px;
+  background: rgba(5, 5, 5, 0.55);
+  border: 1px solid rgba(34, 211, 238, 0.2);
+  border-radius: 999px;
+  backdrop-filter: blur(6px);
+}
+
+.pet-bubble {
+  bottom: 56px;
+  max-width: 92%;
+  white-space: normal;
+  text-align: center;
+  font-size: 10px;
+  line-height: 1.35;
+  border-radius: 10px;
+  backdrop-filter: blur(4px);
+}
+
+.pet-bottom {
+  bottom: 8px;
+  left: 8px;
+  right: 8px;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.pet-drag-hint {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  color: rgba(34, 211, 238, 0.35);
+  pointer-events: none;
+  user-select: none;
 }

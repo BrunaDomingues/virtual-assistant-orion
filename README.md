@@ -1,6 +1,19 @@
-# Assistente Orion
+# Assistente Jarvis
 
-Assistente virtual por voz com interface visual 3D. A escuta é ativada manualmente por botão no frontend, reconhece comandos em português e executa ações no Windows com feedback visual e resposta por voz (TTS) em tempo real.
+Fork personalizado do [virtual-assistant-orion](https://github.com/KevinAllysson/virtual-assistant-orion): assistente virtual por voz para Windows com interface 3D flutuante (modo pet), wake word configurável, comandos Spotify e empacotamento em `.exe`.
+
+---
+
+## O que mudou neste fork
+
+| Recurso | Descrição |
+|---|---|
+| **Janela flutuante** | Abre só o “bichinho” na área de trabalho — sem navegador e sem terminal |
+| **Wake word dinâmica** | Na 1ª execução pergunta o nome; depois usa `oi {nome}` |
+| **Escuta automática** | Fica em standby ouvindo a wake word — sem botão |
+| **Comandos Spotify** | Abrir, play/pause, pular, buscar, playlist por nome/ID |
+| **Executável Windows** | `.\build.ps1` gera `release\Jarvis\Jarvis.exe` |
+| **Preferências locais** | `user_settings.json` ao lado do `.exe` (não vai pro Git) |
 
 ---
 
@@ -8,22 +21,18 @@ Assistente virtual por voz com interface visual 3D. A escuta é ativada manualme
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  Frontend  (React + Three.js)   –  npm run dev → :5173      │
-│                                                             │
-│   Rosto 3D (nuvem de pontos + wireframe MediaPipe)          │
-│   HUD: estado, comandos, parâmetros neurais                 │
+│  Interface (React + Three.js)                               │
+│  Modo pet: rosto 3D + status + bolha de fala                │
+│  Servida em localhost:4173 (pywebview ou navegador)         │
 └───────────────────┬─────────────────────────────────────────┘
                     │  WebSocket  ws://localhost:8765
 ┌───────────────────▼─────────────────────────────────────────┐
-│  Backend   (Python)             –  python main.py → :8765   │
-│                                                             │
-│   VoiceListener   → microfone + Google Speech API            │
-│   CommandExecutor → fuzzy match + subprocess                 │
-│   OrionSpeaker    → edge-tts + pygame (resposta por voz)    │
+│  Backend (Python)                                           │
+│  VoiceListener    → microfone + Google Speech API           │
+│  CommandExecutor  → fuzzy match + subprocess / Spotify      │
+│  OrionSpeaker     → edge-tts + pygame                       │
 └─────────────────────────────────────────────────────────────┘
 ```
-
-O backend emite eventos JSON (`state`, `recognized`, `command`, `error`) para o frontend via WebSocket. O frontend também envia `start_listening` e `stop_listening` para controlar a escuta contínua sem wake word.
 
 ---
 
@@ -32,11 +41,12 @@ O backend emite eventos JSON (`state`, `recognized`, `command`, `error`) para o 
 | Dependência | Versão mínima | Para quê |
 |---|---|---|
 | Python | 3.12+ | Backend / reconhecimento de voz |
-| Node.js | 18+ | Frontend React |
+| Node.js | 18+ | Frontend React (dev e build) |
 | Microfone | — | Captura de áudio |
-| Internet | — | Google Speech API (reconhecimento) |
+| Internet | — | Google Speech API + edge-tts |
+| WebView2 | — | Janela desktop no `.exe` (já vem no Win 10/11) |
 
-> Python 3.14 é suportado. PyAudio **não é necessário** — o projeto usa `sounddevice`.
+> Python 3.13 funciona. PyAudio **não é necessário** — o projeto usa `sounddevice`.
 
 ---
 
@@ -44,208 +54,166 @@ O backend emite eventos JSON (`state`, `recognized`, `command`, `error`) para o 
 
 ```
 virtual-assistant-orion/
-├── backend/                    # Servidor Python
+├── backend/
 │   ├── main.py                 # Ponto de entrada
-│   ├── server.py               # Servidor WebSocket (ws://localhost:8765)
-│   ├── requirements.txt        # Dependências Python
-│   ├── core/
-│   │   ├── voice_listener.py   # Captura + reconhecimento de comando
-│   │   └── speaker.py          # TTS assíncrono (edge-tts + pygame)
-│   ├── utils/
-│   │   └── command_executor.py # Fuzzy match + execução de comandos
-│   └── commands/
-│       └── commands.json       # Comandos de voz configuráveis
-│
-├── src/                        # Aplicação React
-│   ├── App.jsx                 # Orquestração: HUD + estado
-│   ├── index.css               # Estilo global (Share Tech Mono, animações)
-│   ├── hooks/
-│   │   └── useOrionSocket.js   # Hook WebSocket com reconexão automática
-│   ├── components/
-│   │   ├── AgentFace.jsx       # Canvas R3F: rosto, anéis, partículas, Bloom
-│   │   └── FaceMesh.jsx        # Nuvem de pontos + wireframe + olhos animados
-│   └── data/
-│       └── faceLandmarks.js    # Loader do modelo OBJ (MediaPipe 468 vértices)
-│
-├── index.html                  # HTML raiz (fonte Share Tech Mono)
-├── vite.config.js              # Configuração Vite 5
-└── package.json
+│   ├── server.py               # WebSocket + loop de voz
+│   ├── desktop_window.py       # Janela flutuante (pywebview)
+│   ├── static_server.py        # HTTP para o build React
+│   ├── paths.py                # Caminhos dev / .exe
+│   ├── config.py               # Wake word, TTS, modo pet
+│   ├── commands/commands.json  # Comandos de voz
+│   └── utils/
+│       ├── command_executor.py
+│       ├── spotify_actions.py
+│       └── user_settings.py    # Nome do assistente
+├── src/                        # Frontend React + Three.js
+├── build.ps1                   # Gera Jarvis.exe (Windows)
+├── jarvis.spec                 # Config PyInstaller
+└── release/Jarvis/             # Saída do build (gitignored)
 ```
 
 ---
 
-## Instalação
-
-### 1. Clonar o repositório
+## Instalação (desenvolvimento)
 
 ```powershell
-git clone https://github.com/KevinAllysson/virtual-assistant-orion.git
+git clone https://github.com/BrunaDomingues/virtual-assistant-orion.git
 cd virtual-assistant-orion
-```
 
-### 2. Instalar dependências do backend
-
-```powershell
 cd backend
-pip install -r requirements.txt
-```
+py -m pip install -r requirements.txt
 
-> Se aparecer erro de compilação do `PyAudio`: ele não é mais usado. Certifique-se de estar usando o `requirements.txt` atualizado que usa `sounddevice`.
-
-### 3. Instalar dependências do frontend
-
-```powershell
-cd ..          # volta para a raiz do projeto
+cd ..
 npm install
+npm run build
 ```
-
----
-
-## Como iniciar
-
-Abra **dois terminais** separados.
-
-### Terminal 1 — Backend (servidor de voz)
-
-```powershell
-cd backend
-python main.py
-```
-
-Você verá:
-
-```
-============================================================
-       ASSISTENTE ORION - SERVIDOR WebSocket
-       ws://localhost:8765
-============================================================
-Inicializando executor de comandos...
-Carregados 9 comandos do arquivo commands/commands.json
-...
-Calibrando microfone para ruído ambiente...
-[WS] Servidor iniciado em ws://localhost:8765
-```
-
-### Terminal 2 — Frontend (interface visual)
-
-```powershell
-npm run dev
-```
-
-Acesse **http://localhost:5173** no navegador.
-
-Assim que o backend estiver rodando, o painel direito do HUD mostrará `BACKEND: ONLINE` e o botão `INICIAR ESCUTA` ficará disponível para ativar a captura de voz.
 
 ---
 
 ## Como usar
 
-1. Com ambos os servidores rodando, clique em **INICIAR ESCUTA** no HUD.
-2. O rosto 3D muda para o estado **LISTENING**.
-3. Diga um comando — por exemplo: **"abrir chrome"**.
-4. A interface passa por **PROCESSING** e depois **SPEAKING** enquanto a resposta em voz é reproduzida.
-5. Ao terminar, o assistente volta para **LISTENING** (se escuta contínua ativa) ou **STANDBY**.
-6. Clique em **PARAR ESCUTA** para encerrar a captura contínua.
+### Opção A — Executável (recomendado)
+
+```powershell
+.\build.ps1
+```
+
+Depois abra **`release\Jarvis\Jarvis.exe`** (use a pasta inteira, não só o `.exe`).
+
+- Só a janelinha flutuante aparece (sem prompt preto)
+- Logs em `release\Jarvis\jarvis.log`
+- Na **primeira execução**, ele pergunta: *"Como você quer me chamar?"*
+- Depois diga **`oi {seu nome}`** para ativar e fale o comando
+
+Para **trocar o nome**, apague `release\Jarvis\user_settings.json` e abra de novo.
+
+### Opção B — Desenvolvimento
+
+```powershell
+cd backend
+py main.py --with-ui
+```
+
+Abre a janela pet localmente (precisa de `npm run build` antes).
+
+### Flags do backend
+
+| Comando | Efeito |
+|---|---|
+| `py main.py` | Backend + UI pet (se `dist/` existir ou estiver empacotado) |
+| `py main.py --with-ui` | Força interface pet em dev |
+| `py main.py --browser` | Abre no navegador em vez da janela flutuante |
+| `py main.py --legacy` | Só terminal, sem interface |
+
+---
+
+## Fluxo de voz
+
+1. Microfone em **standby** — aguardando wake word
+2. Você fala: **`oi jarvis`** (ou o nome que configurou)
+3. TTS: *"Oi! {Nome} ouvindo."*
+4. Fale o comando e **pause** (~1 s de silêncio)
+5. Comando executado → volta ao standby
+
+Feedback por voz após comandos está **desligado** por padrão (`SPEAK_ON_SUCCESS = False` em `config.py`).
 
 ---
 
 ## Comandos disponíveis
 
+### Sistema
+
 | Fale | Ação |
 |---|---|
 | "abrir chrome" | Abre o Google Chrome |
 | "abrir bloco de notas" | Abre o Notepad |
-| "bloquear tela" | Bloqueia a sessão do Windows |
 | "abrir calculadora" | Abre a Calculadora |
-| "abrir os arquivos do computador" | Abre o Windows Explorer |
-| "aumentar volume" | Aumenta o volume do sistema |
-| "baixar volume" | Diminui o volume do sistema |
-| "desligar computador" | Desliga o PC |
-| "reiniciar computador" | Reinicia o PC |
+| "abrir os arquivos do computador" | Abre o Explorer |
+| "bloquear tela" | Bloqueia o Windows |
+| "aumentar volume" / "baixar volume" | Volume do sistema |
+| "desligar computador" / "reiniciar computador" | Energia |
 
-### Adicionar novos comandos
+### Spotify
 
-Edite `backend/commands/commands.json`:
+| Fale | Ação |
+|---|---|
+| "abrir spotify" | Abre o app |
+| "play no spotify" / "pausar música" | Play/pause |
+| "pular música" / "música anterior" | Faixas |
+| "pesquisar no spotify {artista}" | Busca e toca |
+| "tocar playlist {nome}" | Busca playlist |
+| "aumentar volume em {valor}" | Volume Spotify (0–100) |
 
-```json
-[
-  {
-    "label": "abrir spotify",
-    "code": "start spotify"
-  }
-]
-```
+### Adicionar comandos
 
-- `label` — exatamente o que você vai falar (português)
-- `code` — comando executado via `subprocess` no Windows
+Edite `backend/commands/commands.json`. Reinicie o backend para recarregar.
 
-O backend recarrega o arquivo automaticamente a cada inicialização. Não é necessário reiniciar para trocar comandos — basta reiniciar o `python main.py`.
+Para ações customizadas (ex.: Spotify), use um `code` simbólico e implemente em `backend/utils/spotify_actions.py` ou `command_executor.py`.
 
 ---
 
-## Modo legado (terminal sem frontend)
+## Configuração
 
-Se quiser rodar apenas o backend no terminal, sem o servidor WebSocket:
+Arquivo `backend/config.py`:
 
-```powershell
-cd backend
-python main.py --legacy
+```python
+DESKTOP_PET_MODE = True      # Janela flutuante (False = navegador)
+SPEAK_WAKE_GREETING = True   # Responde ao "oi {nome}"
+SPEAK_ON_SUCCESS = False     # TTS após comando OK
+ASK_ASSISTANT_NAME_ON_FIRST_RUN = True
 ```
 
-No modo legado, o assistente também usa TTS para dar feedback após cada comando executado.
+Preferências do usuário ficam em **`user_settings.json`** (ao lado do `.exe` ou em `backend/` em dev).
 
 ---
 
 ## Solução de problemas
 
-### Backend não inicia / erro de microfone
+### `.exe` abre e fecha na hora
 
-```
-ERRO na inicialização: ...
-```
+- Veja `release\Jarvis\jarvis.log`
+- Rode a pasta inteira `release\Jarvis\`, não só o `.exe`
+- Instale [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) se a janela não aparecer
 
-- Verifique se o microfone está conectado e não está em uso por outro app.
-- Teste com `py -3.14 -c "import sounddevice as sd; print(sd.query_devices())"`.
+### Nome não salvou / sempre pergunta de novo
 
-### Erro de compilação ao instalar dependências
+- Fale só o nome após a pergunta (ex.: "Nova")
+- Verifique permissão de microfone para o app
+- Confira se `user_settings.json` foi criado ao lado do `.exe`
 
-```
-error: Microsoft Visual C++ 14.0 or greater is required
-```
+### Wake word não funciona
 
-O `PyAudio` não é mais usado. Se aparecer esse erro, confirme que o `requirements.txt` contém `sounddevice` e **não** `pyaudio`.
+- Use exatamente `oi {nome}` em minúsculas na fala
+- Apague `user_settings.json` para reconfigurar
 
-### Frontend mostra `BACKEND: OFFLINE`
+### Backend offline na interface
 
-- Confirme que `python main.py` está rodando no terminal 1.
-- Verifique se a porta 8765 está livre: `netstat -an | findstr 8765`.
-- O frontend tentará reconectar automaticamente a cada 2 segundos.
+- Porta 8765 livre: `netstat -an | findstr 8765`
+- Reinicie o `.exe` ou `py main.py --with-ui`
 
-### Rosto 3D não aparece (tela preta)
+### Build falha (“arquivo em uso”)
 
-- O modelo OBJ é baixado do GitHub ao abrir o app — verifique sua conexão com a internet.
-- Durante o download o placeholder (icosaedro wireframe) é exibido.
-
-### Comandos não são reconhecidos
-
-- Fale de forma clara e próxima ao microfone.
-- Verifique sua conexão com a internet (o reconhecimento usa a Google Speech API).
-- Reduza a sensibilidade mínima em `backend/utils/command_executor.py`:
-  ```python
-  def find_command(self, spoken_text: str, min_similarity: float = 0.5):
-  ```
-
-### Botão de escuta não ativa captura
-
-- Confirme que `python main.py` está rodando no backend.
-- Verifique se o frontend mostra `BACKEND: ONLINE`.
-- Se necessário, reinicie backend e frontend.
-
-### Sem áudio de resposta (TTS)
-
-- Verifique se as dependências foram instaladas com `pip install -r requirements.txt`.
-- Confirme que `edge-tts` e `pygame` estão presentes no ambiente Python ativo.
-- Verifique se há dispositivo de saída de áudio disponível no sistema.
+- Feche o `Jarvis.exe` antes de rodar `.\build.ps1`
 
 ---
 
@@ -254,13 +222,26 @@ O `PyAudio` não é mais usado. Se aparecer esse erro, confirme que o `requireme
 | Camada | Tecnologia |
 |---|---|
 | Reconhecimento de voz | `speech_recognition` + Google Speech API |
-| Captura de áudio | `sounddevice` (sem PyAudio) |
-| Resposta por voz (TTS) | `edge-tts` + `pygame` |
-| Servidor WebSocket | `websockets` (Python asyncio) |
-| Interface 3D | React 18 + Three.js ~0.168 + React Three Fiber |
-| Efeitos visuais | `@react-three/postprocessing` (Bloom) |
-| Modelo facial | MediaPipe Canonical Face Model (468 vértices) |
-| Build tool | Vite 5 |
+| Captura de áudio | `sounddevice` |
+| TTS | `edge-tts` + `pygame` |
+| WebSocket | `websockets` (asyncio) |
+| Janela desktop | `pywebview` (Edge WebView2) |
+| Interface 3D | React 18 + Three.js + R3F |
+| Empacotamento | PyInstaller |
+
+---
+
+## Fork e upstream
+
+Este repositório é um **fork** de [KevinAllysson/virtual-assistant-orion](https://github.com/KevinAllysson/virtual-assistant-orion).
+
+Para sincronizar com o original:
+
+```powershell
+git remote add upstream https://github.com/KevinAllysson/virtual-assistant-orion.git
+git fetch upstream
+git merge upstream/main
+```
 
 ---
 
