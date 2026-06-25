@@ -41,6 +41,14 @@ backend/.venv/
 .env
 .env.*
 
-# Temporary files
-*.tmp
+# PyInstaller / release
+release/
+build/jarvis-work/
+build/orion-work/
+
+backend/user_settings.json
+user_settings.json
+jarvis.log
+release/Jarvis/jarvis.log
+
 *.temp

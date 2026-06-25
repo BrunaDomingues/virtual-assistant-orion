@@ -7,15 +7,15 @@ Servidor WebSocket que expõe os eventos do loop de voz para o frontend React.
 Porta padrão: ws://localhost:8765
 
 Mensagens emitidas (JSON):
-  {"type": "state",      "state": "idle"|"listening"|"speaking"}
+  {"type": "state",      "state": "idle"|"standby"|"listening"|"speaking"}
   {"type": "recognized", "text": "<texto reconhecido>"}
   {"type": "command",    "label": "<texto>", "success": true|false}
   {"type": "error",      "message": "<mensagem>"}
 
 Mensagens recebidas do frontend:
   {"type": "ping"}             -> keep-alive
-  {"type": "start_listening"}  -> ativa escuta continua sem wake word
-  {"type": "stop_listening"}   -> interrompe escuta e volta para idle
+  {"type": "start_listening"}  -> reativa escuta por voz
+  {"type": "stop_listening"}   -> silencia o microfone (idle)
 """
 
 import asyncio
@@ -36,7 +36,15 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from core.voice_listener import VoiceListener
 from core.speaker import OrionSpeaker
+from config import (
+    SPEAK_ON_ERROR,
+    SPEAK_ON_SUCCESS,
+    SPEAK_WAKE_GREETING,
+    USE_WAKE_WORD,
+)
+from paths import get_commands_path, get_settings_path
 from utils.command_executor import CommandExecutor
+from utils.user_settings import UserSettings, setup_confirmation_for, wake_greeting_for
 
 HOST = "localhost"
 PORT = 8765
@@ -60,12 +68,77 @@ class OrionWebSocketServer:
         self._loop: asyncio.AbstractEventLoop = None
         self._running = False
         self._voice_thread: threading.Thread = None
-        self._listening_enabled = threading.Event()
+        self._voice_enabled = threading.Event()
+        self._voice_enabled.set()
         self._state_lock = threading.Lock()
         self._current_state = "idle"
         self.listener: VoiceListener = None
         self.speaker = OrionSpeaker()
         self.executor: CommandExecutor = None
+        self.settings = UserSettings.load()
+
+    def _apply_user_settings(self) -> None:
+        if self.listener:
+            self.listener.apply_assistant_name(self.settings.assistant_name)
+
+    def _emit_config(self) -> None:
+        self._emit(
+            "config",
+            assistant_name=self.settings.display_name(),
+            wake_word=self.settings.wake_word,
+            configured=self.settings.configured,
+        )
+
+    def _wake_greeting(self) -> str:
+        return wake_greeting_for(self.settings.assistant_name)
+
+    def _run_name_setup(self) -> None:
+        from config import (
+            ASK_ASSISTANT_NAME_ON_FIRST_RUN,
+            SETUP_LISTEN_TIMEOUT,
+            SETUP_MAX_ROUNDS,
+            SETUP_PHRASE_TIME_LIMIT,
+            SETUP_PROMPT,
+        )
+
+        if not ASK_ASSISTANT_NAME_ON_FIRST_RUN or self.settings.configured:
+            self._apply_user_settings()
+            self._emit_config()
+            return
+
+        print("\nPrimeira execução — configurando nome do assistente...")
+        self._set_state("listening")
+        self._speak_feedback(SETUP_PROMPT)
+
+        saved = False
+        for round_idx in range(SETUP_MAX_ROUNDS):
+            spoken = self.listener.listen_for_assistant_name(
+                max_attempts=3,
+                wait_timeout=SETUP_LISTEN_TIMEOUT,
+                phrase_time_limit=SETUP_PHRASE_TIME_LIMIT,
+            )
+            if spoken:
+                settings = UserSettings.save_name(spoken)
+                if settings:
+                    self.settings = settings
+                    saved = True
+                    break
+
+            if round_idx < SETUP_MAX_ROUNDS - 1:
+                self._speak_feedback("Desculpe, não entendi. Como você quer me chamar?")
+
+        if not saved:
+            print("Nome não configurado — será perguntado novamente na próxima execução.")
+            self._apply_user_settings()
+            self._emit_config()
+            return
+
+        self._apply_user_settings()
+        self._emit_config()
+        self._speak_feedback(setup_confirmation_for(self.settings.assistant_name))
+        print(f"Assistente configurado como: {self.settings.display_name()}")
+        print(f'Wake word: "{self.settings.wake_word}"')
+        print(f"Salvo em: {get_settings_path()}")
 
     # ── Event emission (thread-safe) ──────────────────────────────────────────
 
@@ -85,7 +158,9 @@ class OrionWebSocketServer:
         self._emit("state", state=state)
 
     def _post_speech_state(self) -> str:
-        return "listening" if self._listening_enabled.is_set() else "idle"
+        if not self._voice_enabled.is_set():
+            return "idle"
+        return "standby" if USE_WAKE_WORD else "listening"
 
     async def _speak_with_state(self, text: str) -> None:
         """
@@ -122,13 +197,13 @@ class OrionWebSocketServer:
         """Inicializa VoiceListener e CommandExecutor. Roda na thread de voz."""
         try:
             print("=" * 60)
-            print("       ASSISTENTE ORION - SERVIDOR WebSocket")
+            print(f"       ASSISTENTE {self.settings.display_name().upper()} - SERVIDOR WebSocket")
             print(f"       ws://{self.host}:{self.port}")
             print("=" * 60)
 
-            commands_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "commands", "commands.json")
+            commands_path = get_commands_path()
             if not os.path.exists(commands_path):
-                self._emit("error", message="commands/commands.json não encontrado")
+                self._emit("error", message=f"Arquivo de comandos não encontrado: {commands_path}")
                 return False
 
             print("Inicializando executor de comandos...")
@@ -140,8 +215,11 @@ class OrionWebSocketServer:
 
             print("\nInicializando listener de voz...")
             self.listener = VoiceListener()
+            self._run_name_setup()
 
             print("✅ Componentes inicializados com sucesso!")
+            if USE_WAKE_WORD:
+                print(f'Diga "{self.settings.wake_word}" para ativar — escuta automática ligada.')
             print(f"\nFrontend pode conectar em ws://{self.host}:{self.port}")
             print("=" * 60)
             return True
@@ -160,37 +238,49 @@ class OrionWebSocketServer:
         if not self._initialize_components():
             return
 
-        self._set_state("idle")
+        self._set_state("standby" if USE_WAKE_WORD and self._voice_enabled.is_set() else "idle")
 
         while self._running:
             try:
-                # Aguarda ativação manual de escuta sem bloquear o shutdown.
-                if not self._listening_enabled.wait(timeout=0.2):
-                    continue
-                if not self._running:
-                    break
+                if not self._voice_enabled.is_set():
+                    self._set_state("idle")
+                    if not self._voice_enabled.wait(timeout=0.2):
+                        continue
+                    if not self._running:
+                        break
 
-                self._set_state("listening")
+                should_listen = lambda: self._voice_enabled.is_set() and self._running
 
-                # Escuta comando diretamente (sem wake word).
-                command_text = self.listener.listen_for_command(max_attempts=1)
+                if USE_WAKE_WORD:
+                    self._set_state("standby")
+                    detected, inline_command = self.listener.wait_for_wake_word(should_listen)
+                    if not detected or not self._running:
+                        continue
+
+                    if inline_command:
+                        command_text = inline_command
+                    else:
+                        if SPEAK_WAKE_GREETING:
+                            self._speak_feedback(self._wake_greeting())
+                        self._set_state("listening")
+                        command_text = self.listener.listen_for_command()
+                else:
+                    self._set_state("listening")
+                    command_text = self.listener.listen_for_command(max_attempts=1)
 
                 if command_text:
                     self._emit("recognized", text=command_text)
 
-                    # Executa o comando reconhecido.
                     success = self.executor.process_voice_command(command_text)
                     self._emit("command", label=command_text, success=success)
-                    feedback = (
-                        f"Comando {command_text} executado com sucesso."
-                        if success
-                        else f"Nao consegui executar o comando {command_text}."
-                    )
-                    self._speak_feedback(feedback)
 
-                # Se ainda ativo, volta a escutar continuamente; caso contrário, idle.
-                if self._listening_enabled.is_set():
-                    self._set_state("listening")
+                    if success and SPEAK_ON_SUCCESS:
+                        self._speak_feedback(f"Comando {command_text} executado com sucesso.")
+                    elif not success and SPEAK_ON_ERROR:
+                        self._speak_feedback(f"Nao consegui executar o comando {command_text}.")
+
+                if self._voice_enabled.is_set():
+                    self._set_state("standby" if USE_WAKE_WORD else "listening")
                 else:
                     self._set_state("idle")
 
@@ -214,6 +304,12 @@ class OrionWebSocketServer:
             with self._state_lock:
                 state = self._current_state
             await websocket.send(json.dumps({"type": "state", "state": state}))
+            await websocket.send(json.dumps({
+                "type": "config",
+                "assistant_name": self.settings.display_name(),
+                "wake_word": self.settings.wake_word,
+                "configured": self.settings.configured,
+            }))
         except Exception:
             pass
 
@@ -225,10 +321,10 @@ class OrionWebSocketServer:
                     if msg_type == "ping":
                         await websocket.send(json.dumps({"type": "pong"}))
                     elif msg_type == "start_listening":
-                        self._listening_enabled.set()
-                        self._set_state("listening")
+                        self._voice_enabled.set()
+                        self._set_state("standby" if USE_WAKE_WORD else "listening")
                     elif msg_type == "stop_listening":
-                        self._listening_enabled.clear()
+                        self._voice_enabled.clear()
                         self._set_state("idle")
                 except (json.JSONDecodeError, KeyError):
                     pass
@@ -278,14 +374,17 @@ class OrionWebSocketServer:
         self._voice_thread = threading.Thread(target=self._voice_loop, daemon=True, name="voice-loop")
         self._voice_thread.start()
 
-        # Trata Ctrl+C graciosamente
-        loop = self._loop
-        for sig in (signal.SIGINT, signal.SIGTERM):
-            try:
-                loop.add_signal_handler(sig, self._shutdown)
-            except NotImplementedError:
-                # Windows não suporta add_signal_handler para todos os sinais
-                signal.signal(sig, lambda s, f: self._shutdown())
+        # Trata Ctrl+C graciosamente (só na thread principal — no modo pet o WS roda em background)
+        if threading.current_thread() is threading.main_thread():
+            loop = self._loop
+            for sig in (signal.SIGINT, signal.SIGTERM):
+                try:
+                    loop.add_signal_handler(sig, self._shutdown)
+                except NotImplementedError:
+                    try:
+                        signal.signal(sig, lambda _s, _f: self._shutdown())
+                    except ValueError:
+                        pass
 
         print(f"[WS] Servidor iniciado em ws://{self.host}:{self.port}")
 
@@ -295,7 +394,7 @@ class OrionWebSocketServer:
     def _shutdown(self) -> None:
         print("\n[WS] Encerrando servidor...")
         self._running = False
-        self._listening_enabled.clear()
+        self._voice_enabled.clear()
 
 
 # ── Dependency check ──────────────────────────────────────────────────────────

@@ -1,35 +1,47 @@
 """
-Arquivo de configuração do AssistenteOrion
+Configuração do Assistente Jarvis
 """
 
-# Wake Word e suas variações fonéticas
-WAKE_WORD = "orion"
+ASSISTANT_NAME = "Jarvis"
+DEFAULT_ASSISTANT_NAME = "jarvis"
 
-# Variações fonéticas aceitas para a wake word
-# Adicione aqui novas variações que você perceber que o Google reconhece
-WAKE_WORD_VARIATIONS = [
-    "orion",     # Original
-    "órion",     # Com acento
-    "orio",      # Comum quando o 'n' não é reconhecido
-    "ório",      # Com acento sem o 'n'
-    "orião",     # Variação com til
-    "hórion",    # Com 'h' aspirado
-    "oriom",     # Variação do 'n' para 'm'
-    "o rion",    # Separado
-    "o rio",     # Separado e sem 'n'
-    "oryon",     # Variação com 'y'
-    "aurio",     # Variação que pode ocorrer
-    "óleo",      # Às vezes confunde com esta palavra (removível se não quiser)
-]
+# Wake word padrão (usado só se ainda não houver user_settings.json)
+WAKE_WORD = "oi jarvis"
 
 # Configurações de timeout
-LISTENING_TIMEOUT = 1  # Timeout para escuta contínua da wake word (segundos)
-COMMAND_TIMEOUT = 5    # Timeout para captura de comandos (segundos)
-PHRASE_TIMEOUT = 0.3   # Timeout entre frases (segundos)
+LISTENING_TIMEOUT = 5
+COMMAND_TIMEOUT = 8
+PHRASE_TIMEOUT = 0.3
+
+# Detecção de fim de fala
+PAUSE_THRESHOLD = 1.1
+NON_SPEAKING_DURATION = 0.6
+WAKE_PHRASE_TIME_LIMIT = 8
+COMMAND_PHRASE_TIME_LIMIT = 30
+
+# Resposta ao acionar com a wake word (texto dinâmico usa o nome salvo)
+SPEAK_WAKE_GREETING = True
+
+# Primeira execução: pergunta "Como você quer me chamar?"
+ASK_ASSISTANT_NAME_ON_FIRST_RUN = True
+SETUP_PROMPT = "Olá! Como você quer me chamar?"
+SETUP_LISTEN_TIMEOUT = 12
+SETUP_PHRASE_TIME_LIMIT = 15
+SETUP_MAX_ROUNDS = 3
 
 # Configurações de reconhecimento
-MAX_COMMAND_ATTEMPTS = 3  # Número máximo de tentativas para capturar comando
-COMMAND_SIMILARITY_THRESHOLD = 0.6  # Similaridade mínima para matching de comandos (0 a 1)
+MAX_COMMAND_ATTEMPTS = 3
+COMMAND_SIMILARITY_THRESHOLD = 0.6
 
-# Arquivos
+USE_WAKE_WORD = True
+
 COMMANDS_FILE = "commands/commands.json"
+
+SPEAK_ON_SUCCESS = False
+SPEAK_ON_ERROR = False
+
+# Interface desktop — bichinho flutuante (sem abrir Chrome/Edge externo)
+DESKTOP_PET_MODE = True
+PET_WINDOW_TITLE = "Jarvis"
+PET_WINDOW_WIDTH = 360
+PET_WINDOW_HEIGHT = 420

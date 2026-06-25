@@ -1,182 +1,235 @@
+import re
 import speech_recognition as sr
-import time
-from typing import Optional, List
+from typing import Callable, Optional, List, Tuple
 
+from config import (
+    COMMAND_PHRASE_TIME_LIMIT,
+    COMMAND_TIMEOUT,
+    DEFAULT_ASSISTANT_NAME,
+    LISTENING_TIMEOUT,
+    MAX_COMMAND_ATTEMPTS,
+    NON_SPEAKING_DURATION,
+    PAUSE_THRESHOLD,
+    PHRASE_TIMEOUT,
+    WAKE_PHRASE_TIME_LIMIT,
+)
 from core.sd_microphone import SoundDeviceMicrophone
+from utils.user_settings import build_wake_variations
 
 
 class VoiceListener:
     """
-    Classe responsável pela escuta contínua de voz e detecção da wake word "Orion"
+    Escuta contínua com detecção da wake word antes do comando.
+    Aguarda silêncio (fim de fala) antes de processar cada frase.
     """
-    
-    def __init__(self, wake_word: str = "orion", wake_word_variations: Optional[List[str]] = None, 
-                 timeout: int = 1, phrase_timeout: float = 0.3):
-        """
-        Inicializa o listener de voz
-        
-        Args:
-            wake_word (str): Palavra-chave para ativar o assistente
-            wake_word_variations (List[str]): Lista de variações fonéticas aceitas
-            timeout (int): Timeout para escuta em segundos
-            phrase_timeout (float): Timeout para pausa entre frases
-        """
-        self.wake_word = wake_word.lower()
-        
-        # Se não informar variações, usa as padrões
-        if wake_word_variations is None:
-            self.wake_word_variations = [
-                "orion",     # Original
-                "órion",     # Com acento
-                "orio",      # Comum quando o 'n' não é reconhecido
-                "ório",      # Com acento sem o 'n'
-                "orião",     # Variação com til
-                "hórion",    # Com 'h' aspirado
-                "oriom",     # Variação do 'n' para 'm'
-                "o rion",    # Separado
-                "o rio",     # Separado e sem 'n'
-                "oryon",     # Variação com 'y'
-            ]
-        else:
-            self.wake_word_variations = [v.lower() for v in wake_word_variations]
-        
+
+    def __init__(
+        self,
+        wake_word: str | None = None,
+        wake_word_variations: Optional[List[str]] = None,
+        timeout: int = LISTENING_TIMEOUT,
+        command_timeout: int = COMMAND_TIMEOUT,
+        phrase_timeout: float = PHRASE_TIMEOUT,
+        max_command_attempts: int = MAX_COMMAND_ATTEMPTS,
+    ):
         self.timeout = timeout
+        self.command_timeout = command_timeout
         self.phrase_timeout = phrase_timeout
-        
-        # Configurar o reconhecedor
+        self.max_command_attempts = max_command_attempts
+        self.wake_word = ""
+        self.wake_word_variations: List[str] = []
+
+        if wake_word_variations is not None:
+            self.wake_word_variations = [v.lower() for v in wake_word_variations]
+            self.wake_word = (wake_word or self.wake_word_variations[0]).lower()
+        elif wake_word:
+            self.wake_word = wake_word.lower()
+            self.wake_word_variations = build_wake_variations(
+                wake_word.removeprefix("oi ").strip() or DEFAULT_ASSISTANT_NAME
+            )
+        else:
+            self.apply_assistant_name(DEFAULT_ASSISTANT_NAME)
+
         self.recognizer = sr.Recognizer()
+        self._configure_recognizer()
         self.microphone = SoundDeviceMicrophone()
-        
-        # Ajustar para ruído ambiente
         self._calibrate_microphone()
-    
+
+    def apply_assistant_name(self, assistant_name: str) -> None:
+        name = assistant_name.lower().strip() or DEFAULT_ASSISTANT_NAME
+        self.wake_word = f"oi {name}"
+        self.wake_word_variations = build_wake_variations(name)
+
+    def _configure_recognizer(self) -> None:
+        """Ajusta sensibilidade ao silêncio — espera você terminar de falar."""
+        self.recognizer.pause_threshold = PAUSE_THRESHOLD
+        self.recognizer.non_speaking_duration = NON_SPEAKING_DURATION
+        self.recognizer.dynamic_energy_threshold = True
+        self.recognizer.operation_timeout = None
+
     def _calibrate_microphone(self) -> None:
-        """
-        Calibra o microfone para o ruído ambiente
-        """
         print("Calibrando microfone para ruído ambiente...")
         with self.microphone as source:
             self.recognizer.adjust_for_ambient_noise(source, duration=2)
         print("Calibração concluída!")
-    
-    def _listen_for_audio(self) -> Optional[str]:
-        """
-        Escuta por áudio e converte para texto
-        
-        Returns:
-            Optional[str]: Texto reconhecido ou None se não conseguir reconhecer
-        """
+
+    def _listen_phrase(
+        self,
+        wait_timeout: float,
+        phrase_time_limit: float,
+        label: str = "frase",
+    ) -> Optional[str]:
         try:
-            print("[DEBUG] 🎤 Escutando áudio...")
+            print(f"[DEBUG] Escutando {label} (aguardando fim da fala)...")
             with self.microphone as source:
-                # Escuta por áudio
                 audio = self.recognizer.listen(
-                    source, 
-                    timeout=self.timeout, 
-                    phrase_time_limit=5
+                    source,
+                    timeout=wait_timeout,
+                    phrase_time_limit=phrase_time_limit,
                 )
-            
-            print("[DEBUG] 🔄 Processando áudio capturado...")
-            # Converte áudio para texto em português
-            text = self.recognizer.recognize_google(audio, language='pt-BR')
+
+            text = self.recognizer.recognize_google(audio, language="pt-BR")
             text_lower = text.lower().strip()
-            
-            # LOG IMPORTANTE: Mostra o que foi reconhecido
-            print(f"[DEBUG] ✅ Texto reconhecido: '{text}' (normalizado: '{text_lower}')")
-            
+            print(f"[DEBUG] Texto reconhecido: '{text}'")
             return text_lower
-            
+
         except sr.WaitTimeoutError:
-            # Timeout normal - continua escutando
-            print("[DEBUG] ⏱️ Timeout - nenhum som detectado")
             return None
         except sr.UnknownValueError:
-            # Não conseguiu entender o áudio
-            print("[DEBUG] ❌ Áudio capturado mas não foi possível entender")
+            print("[DEBUG] Áudio capturado mas não foi possível entender")
             return None
         except sr.RequestError as e:
-            print(f"[ERRO] ⚠️ Erro no serviço de reconhecimento: {e}")
+            print(f"[ERRO] Serviço de reconhecimento: {e}")
             return None
         except Exception as e:
-            print(f"[ERRO] ⚠️ Erro inesperado: {e}")
+            print(f"[ERRO] Inesperado na escuta: {e}")
             return None
-    
-    def wait_for_wake_word(self) -> bool:
+
+    def _find_wake_word_and_remainder(self, text: str) -> Tuple[Optional[str], Optional[str]]:
+        text = text.lower().strip()
+        best_match: Optional[Tuple[int, int, str]] = None
+
+        for variation in sorted(self.wake_word_variations, key=len, reverse=True):
+            pattern = re.compile(
+                rf"(^|\s){re.escape(variation)}(\s|$|[,.])",
+                re.IGNORECASE,
+            )
+            match = pattern.search(text)
+            if match and (best_match is None or match.start() < best_match[0]):
+                best_match = (match.start(), match.end(), variation)
+
+        if best_match is None:
+            return None, None
+
+        _, end, variation = best_match
+        remainder = text[end:].strip(" ,.")
+        return variation, remainder or None
+
+    def strip_wake_word(self, text: str) -> str:
+        _, remainder = self._find_wake_word_and_remainder(text.lower().strip())
+        if remainder:
+            return remainder
+        cleaned = text.lower().strip()
+        for variation in sorted(self.wake_word_variations, key=len, reverse=True):
+            cleaned = re.sub(
+                rf"(^|\s){re.escape(variation)}(\s|$|[,.])",
+                " ",
+                cleaned,
+                count=1,
+            ).strip()
+        return " ".join(cleaned.split())
+
+    def wait_for_wake_word(self, should_continue: Callable[[], bool]) -> Tuple[bool, Optional[str]]:
         """
-        Fica escutando até detectar a wake word "Orion" ou suas variações fonéticas
-        
-        Returns:
-            bool: True se a wake word foi detectada
+        Aguarda a wake word. Retorna (detectou, comando_na_mesma_frase_ou_none).
         """
-        print(f"\n{'='*60}")
-        print(f"🔊 AGUARDANDO WAKE WORD: '{self.wake_word.upper()}'")
-        print(f"   Variações aceitas: {', '.join(self.wake_word_variations)}")
-        print(f"{'='*60}\n")
-        
-        while True:
-            text = self._listen_for_audio()
-            
-            if text:
-                # Verifica se alguma variação da wake word está presente no texto
-                detected_variation = None
-                for variation in self.wake_word_variations:
-                    if variation in text:
-                        detected_variation = variation
-                        break
-                
-                if detected_variation:
-                    print(f"\n{'='*60}")
-                    print(f"🎯 WAKE WORD DETECTADA!")
-                    print(f"   Texto completo: '{text}'")
-                    print(f"   Variação detectada: '{detected_variation}'")
-                    print(f"{'='*60}\n")
-                    return True
-                else:
-                    print(f"[DEBUG] ❌ Wake word NÃO encontrada em: '{text}'")
-    
-    def listen_for_command(self, max_attempts: int = 3) -> Optional[str]:
-        """
-        Após detectar a wake word, escuta por um comando
-        
-        Args:
-            max_attempts (int): Número máximo de tentativas para capturar o comando
-            
-        Returns:
-            Optional[str]: Comando reconhecido ou None se não conseguir
-        """
-        print("🎤 Aguardando comando...")
-        
-        for attempt in range(max_attempts):
-            try:
-                print(f"[DEBUG] Tentativa {attempt + 1}/{max_attempts}")
-                with self.microphone as source:
-                    # Escuta por um comando com timeout maior
-                    audio = self.recognizer.listen(
-                        source, 
-                        timeout=5,  # Timeout maior para comando
-                        phrase_time_limit=10
-                    )
-                
-                print("[DEBUG] 🔄 Processando comando...")
-                # Converte para texto
-                command = self.recognizer.recognize_google(audio, language='pt-BR')
-                command = command.lower().strip()
-                
-                print(f"[DEBUG] ✅ Comando capturado: '{command}'")
-                return command
-                
-            except sr.WaitTimeoutError:
-                print(f"[DEBUG] ⏱️ Timeout na tentativa {attempt + 1}/{max_attempts}")
+        print(f"\nAguardando wake word '{self.wake_word.upper()}'...")
+
+        while should_continue():
+            text = self._listen_phrase(
+                wait_timeout=self.timeout,
+                phrase_time_limit=WAKE_PHRASE_TIME_LIMIT,
+                label="wake word",
+            )
+            if not text:
                 continue
-            except sr.UnknownValueError:
-                print(f"[DEBUG] ❌ Não foi possível entender o áudio - tentativa {attempt + 1}/{max_attempts}")
+
+            variation, inline_command = self._find_wake_word_and_remainder(text)
+            if variation:
+                print(f"Wake word detectada ('{variation}')")
+                if inline_command:
+                    print(f"Comando na mesma frase: '{inline_command}'")
+                return True, inline_command
+
+            print(f"[DEBUG] Wake word não encontrada em: '{text}'")
+
+        return False, None
+
+    def listen_for_command(self, max_attempts: Optional[int] = None) -> Optional[str]:
+        attempts = self.max_command_attempts if max_attempts is None else max_attempts
+        print("Aguardando comando (fale e pause ao terminar)...")
+
+        for attempt in range(attempts):
+            text = self._listen_phrase(
+                wait_timeout=self.command_timeout,
+                phrase_time_limit=COMMAND_PHRASE_TIME_LIMIT,
+                label=f"comando ({attempt + 1}/{attempts})",
+            )
+            if not text:
+                print(f"[DEBUG] Timeout aguardando comando — tentativa {attempt + 1}/{attempts}")
                 continue
-            except sr.RequestError as e:
-                print(f"[ERRO] ⚠️ Erro no serviço de reconhecimento: {e}")
-                break
-            except Exception as e:
-                print(f"[ERRO] ⚠️ Erro inesperado: {e}")
-                break
-        
-        print("❌ Não foi possível capturar um comando válido")
+
+            command = self.strip_wake_word(text)
+            if not command:
+                print("[DEBUG] Comando vazio após remover wake word")
+                continue
+
+            print(f"[DEBUG] Comando capturado: '{command}'")
+            return command
+
+        print("Não foi possível capturar um comando válido")
         return None
+
+    def listen_for_assistant_name(
+        self,
+        max_attempts: int = 5,
+        wait_timeout: float = 12,
+        phrase_time_limit: float = 15,
+    ) -> Optional[str]:
+        """Captura o nome falado na configuração inicial (sem exigir wake word)."""
+        print("Aguardando nome do assistente...")
+
+        for attempt in range(max_attempts):
+            text = self._listen_phrase(
+                wait_timeout=wait_timeout,
+                phrase_time_limit=phrase_time_limit,
+                label=f"nome ({attempt + 1}/{max_attempts})",
+            )
+            if text:
+                print(f"[DEBUG] Nome capturado: '{text}'")
+                return text
+
+            print(f"[DEBUG] Não ouvi o nome — tentativa {attempt + 1}/{max_attempts}")
+
+        return None
+
+    def capture_command(
+        self,
+        should_continue: Callable[[], bool],
+        on_wake_detected: Optional[Callable[[bool], None]] = None,
+    ) -> Optional[str]:
+        """
+        Fluxo completo: wake word → (callback opcional) → comando.
+        on_wake_detected(reprecisa_escutar_comando) é chamado após detectar o 'oi'.
+        """
+        detected, inline_command = self.wait_for_wake_word(should_continue)
+        if not detected:
+            return None
+
+        if on_wake_detected:
+            on_wake_detected(inline_command is None)
+
+        if inline_command:
+            return inline_command
+
+        return self.listen_for_command()
