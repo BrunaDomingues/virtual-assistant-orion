@@ -235,12 +235,26 @@ Preferências do usuário ficam em **`user_settings.json`** (ao lado do `.exe` o
 
 Este repositório é um **fork** de [KevinAllysson/virtual-assistant-orion](https://github.com/KevinAllysson/virtual-assistant-orion).
 
-Para sincronizar com o original:
+| Documento | Descrição |
+|---|---|
+| [CHANGELOG.md](CHANGELOG.md) | O que foi alterado neste fork |
+| [docs/UPSTREAM.md](docs/UPSTREAM.md) | Remotes, sync com o original e fluxo de PR |
+
+Remotes esperados:
 
 ```powershell
-git remote add upstream https://github.com/KevinAllysson/virtual-assistant-orion.git
+git remote -v
+# origin   → BrunaDomingues/virtual-assistant-orion (seu fork)
+# upstream → KevinAllysson/virtual-assistant-orion (original)
+```
+
+Sincronizar com o original:
+
+```powershell
 git fetch upstream
+git checkout main
 git merge upstream/main
+git push origin main
 ```
 
 ---
